@@ -26,11 +26,15 @@
 #define I_INVERSE(N, P, p, i) (p*(N/P) + MIN(N%P, p) + i)
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) (I(axis_secondary, P, p) * axis_main) // Number of local cell (excluding ghost cells)
-#define GHOST_CELL_SIZE(P, p, axis_main, axis_secondary) (N_GHOST_PER_SIZE * axis_main) // Number of ghost cell
-#define LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) (N_GHOST_PER_SIZE * axis_main) // The index of the first local cell
+#define LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) (I(axis_secondary, P, p) * axis_main) // Number of local cell (excluding ghost cells)
+#define GHOST_CELL_COUNT(P, p, axis_main, axis_secondary) (N_GHOST_PER_SIZE * axis_main) // Number of ghost cell
+#define ALL_CELL_COUNT(P, p, axis_main, axis_secondary) (LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) + 2 * GHOST_CELL_COUNT(P, p, axis_main, axis_secondary)) // Number of all cells
+#define LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) (LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(t_grayscale)) // The size of the local cell
+#define GHOST_CELL_SIZE(P, p, axis_main, axis_secondary) (GHOST_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(t_grayscale)) // The size of the ghost cell
+#define ALL_CELL_SIZE(P, p, axis_main, axis_secondary) (ALL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(t_grayscale)) // The size of all cells
+#define LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) (N_GHOST_PER_SIZE * axis_main) // The index of the first local cell
 #define GHOST_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) (0) // The index of the first ghost cell
-#define GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) (LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) + LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary)) // The index of the first ghost cell
+#define GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) (LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary)) // The index of the first ghost cell
 #define IMAGE_IDX(i, j, axis_main) ((i)*(axis_main)+(j)) // The 
 
 
@@ -76,10 +80,10 @@ int main(int argc, char *argv[]) {
 
     //** Read the image data
     //**** Represent the 2D array in 1D array
-    t_grayscale *local_image = (t_grayscale *) malloc((2 * N_GHOST_PER_SIZE + I(axis_secondary, P, p)) * axis_main * sizeof(t_grayscale));
+    t_grayscale *local_image = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
     I = I(axis_secondary, P, p);
     offset += I_INVERSE(axis_secondary, P, p, 0) * axis_main * sizeof(t_grayscale) + 4;
-    MPI_File_read_at(in_fh, offset, local_image + axis_main * N_GHOST_PER_SIZE, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
+    MPI_File_read_at(in_fh, offset, local_image + axis_main * N_GHOST_PER_SIZE, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&in_fh);
 
 
@@ -107,7 +111,7 @@ int main(int argc, char *argv[]) {
         }
     }
     // MPI_File_seek(out_fh, offset, MPI_SEEK_SET);
-    MPI_File_write_at(out_fh, offset, local_image + LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
+    MPI_File_write_at(out_fh, offset, local_image + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&out_fh);
 
     free(local_image);
@@ -128,17 +132,17 @@ int main(int argc, char *argv[]) {
  */
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary){
     
-    t_grayscale *ptr_local_cell_to_send_head = ptr_cells + LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary);
-    t_grayscale *ptr_local_cell_to_send_tail = ptr_cells + GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) - GHOST_CELL_SIZE(P, p, axis_main, axis_secondary);
+    t_grayscale *ptr_local_cell_to_send_head = ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary);
+    t_grayscale *ptr_local_cell_to_send_tail = ptr_cells + GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) - GHOST_CELL_COUNT(P, p, axis_main, axis_secondary);
     t_grayscale *ptr_ghost_head = ptr_cells;
     t_grayscale *ptr_ghost_tail = ptr_cells + GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary);
-    int ghost_cell_size = GHOST_CELL_SIZE(P, p, axis_main, axis_secondary);
+    int ghost_cell_COUNT = GHOST_CELL_COUNT(P, p, axis_main, axis_secondary);
     // Rank 2n communicate with rank 2n+1
     if(p % 2 == 0){
         // Send then receive, to/from next rank
         if(p < P - 1){
-            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_size, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(ptr_ghost_tail, ghost_cell_size, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(ptr_ghost_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         else{
             // If last rank, flip alone the boarder locally
@@ -150,15 +154,15 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     }
     else{
         // Receive then send, from/to previous rank (never be the first rank).
-        MPI_Recv(ptr_ghost_head, ghost_cell_size, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Send(ptr_local_cell_to_send_head, ghost_cell_size, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
+        MPI_Recv(ptr_ghost_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(ptr_local_cell_to_send_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
     }
     // Rank 2n communicate with rank 2n-1
     if(p % 2 == 0){
         // Send then receive, to/from previous rank
         if(p > 0){
-            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_size, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(ptr_ghost_tail, ghost_cell_size, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(ptr_ghost_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         else{
             // If first rank, flip alone the boarder locally
@@ -170,8 +174,8 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     }
     else{
         if(p < P - 1){
-            MPI_Recv(ptr_ghost_head, ghost_cell_size, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Send(ptr_local_cell_to_send_head, ghost_cell_size, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(ptr_ghost_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(ptr_local_cell_to_send_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
         }
         else{
             // If last rank, flip alone the boarder locally
@@ -192,7 +196,7 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     //** Create a Gaussian kernel
     double kernel[GAUSSIAN_KERNEL_SIZE][GAUSSIAN_KERNEL_SIZE];
     double norm = 0;
-    t_grayscale *temp_image = (t_grayscale *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(t_grayscale));
+    t_grayscale *temp_image = (t_grayscale *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
     for (int i = 0; i < GAUSSIAN_KERNEL_SIZE; i++)
     {
         for (int j = 0; j < GAUSSIAN_KERNEL_SIZE; j++)
@@ -201,20 +205,20 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
             norm += kernel[i][j];
         }
     }
-    for (int offset = 0; offset < LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary); offset++)
+    for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++)
     {   
         double sum = 0;
         for (int k = 0; k < GAUSSIAN_KERNEL_SIZE; k++)
         {
             for (int l = 0; l < GAUSSIAN_KERNEL_SIZE; l++)
             {
-                 sum += kernel[k][l] * ptr_cells[LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) + offset];
+                 sum += kernel[k][l] * ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset];
             }
         }
 
         temp_image[offset] = (t_grayscale) (255);
     }
-    memcpy(ptr_cells + LOCAL_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary), temp_image, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(t_grayscale));
+    memcpy(ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), temp_image, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
     free(temp_image);
 }
 
