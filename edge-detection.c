@@ -161,8 +161,8 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     if(p % 2 == 0){
         // Send then receive, to/from previous rank
         if(p > 0){
-            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(ptr_ghost_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(ptr_local_cell_to_send_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(ptr_ghost_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         else{
             // If first rank, flip alone the boarder locally
@@ -174,8 +174,8 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     }
     else{
         if(p < P - 1){
-            MPI_Recv(ptr_ghost_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Send(ptr_local_cell_to_send_head, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(ptr_ghost_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(ptr_local_cell_to_send_tail, ghost_cell_COUNT, MPI_T_GRAYSCALE, p + 1, 0, MPI_COMM_WORLD);
         }
         else{
             // If last rank, flip alone the boarder locally
@@ -205,18 +205,26 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
             norm += kernel[i][j];
         }
     }
+
     for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++)
     {   
         double sum = 0;
-        for (int k = 0; k < GAUSSIAN_KERNEL_SIZE; k++)
+        for (int i =0; i < GAUSSIAN_KERNEL_SIZE; i++)
         {
-            for (int l = 0; l < GAUSSIAN_KERNEL_SIZE; l++)
-            {
-                 sum += kernel[k][l] * ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset];
+            for (int j = 0; j < GAUSSIAN_KERNEL_SIZE; j++)
+            {   
+                int translated_idx = offset + (i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
+                // Handel the edges
+                if(offset % axis_main < GAUSSIAN_KERNEL_SIZE / 2){
+                    translated_idx = offset + abs(i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
+                }
+                else if(offset % axis_main >= axis_main - GAUSSIAN_KERNEL_SIZE / 2){
+                    translated_idx = offset - abs(i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
+                }
+                sum += kernel[i][j] * ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx];
             }
         }
-
-        temp_image[offset] = (t_grayscale) (255);
+        temp_image[offset] = (t_grayscale) (sum / norm);
     }
     memcpy(ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), temp_image, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
     free(temp_image);
