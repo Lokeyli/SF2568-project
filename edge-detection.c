@@ -187,10 +187,41 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     }
 }
 
+/**
+ * @brief   Return the G(x,y), where G is the PDF of 2D Gaussian distribution.
+ * 
+ * @param   x           Value of variable x.
+ * @param   y           Value of variable y.
+ * @param   mean        Mean of G.
+ * @param   std         Standard deviation of G.
+ * @return double       G(x,y).
+ */
 double gaussian_distribution_2D(double x, double y, double mean, double std){
     return (1 / (2 * std * std * M_PI)) * exp( - (x*x + y*y) / (2 * std * std) );
 }
 
+/**
+ * @brief   Gaussian blur the image, in place.
+ *          For the pixels on the edge, alone the secondary axis,
+ *          they will be flipped to the other side of the edge when applying the filter.
+ *          i.e. we have a 3*3 kernel and the image image:
+ *          ________________
+ *          | 11 12 13 ...
+ *          | 21 22 23 ...
+ *          | 31 32 33 ...
+ *          | ...
+ *          
+ *          When apply kernel on the pixel 21, it will be:
+ *                      |12 11 12|
+ *          dot(kernel, |22 21 22|)
+ *                      |32 31 32|
+ * 
+ * @param   ptr_cells   The pointer to the start of the local cells.
+ * @param   P           Number of total ranks.
+ * @param   p           Rank number.
+ * @param   axis_main   The size of the main axis.
+ * @param   axis_secondary The size of the secondary axis.
+ */
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary){
     // Gaussian filter
     //** Create a Gaussian kernel
