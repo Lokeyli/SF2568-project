@@ -4,6 +4,9 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <stdint.h>
+#include <float.h>
+#include <stdbool.h>
 
 // Global parameters/variables
 #define t_grayscale unsigned char
@@ -20,6 +23,13 @@
 #define GAUSSIAN_STD 1.5
 #define GAUSSIAN_MEAN 0
 #define GAUSSIAN_KERNEL_SIZE 5
+
+// Sobel operator parameters
+#define SOBEL_KERNEL_SIZE 3
+typedef struct {
+    t_grayscale magnitude;
+    float angle;
+} gradient_image; // the output of sobel
 
 // Macros
 #define I(N, P, p)  ((N+P-p-1)/P)
@@ -82,6 +92,8 @@ int main(int argc, char *argv[]) {
     //**** Represent the 2D array in 1D array
     t_grayscale *local_image = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
     I = I(axis_secondary, P, p);
+    // magnitude and angle struct after sobel operation
+    gradient_image *local_image_gradient = (gradient_image *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
     offset += I_INVERSE(axis_secondary, P, p, 0) * axis_main * sizeof(t_grayscale) + 4;
     MPI_File_read_at(in_fh, offset, local_image + axis_main * N_GHOST_PER_SIZE, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&in_fh);
@@ -95,7 +107,7 @@ int main(int argc, char *argv[]) {
     */
     communication(local_image, P, p, axis_main, axis_secondary);
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
-
+    sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
 
 
     // Write output file
@@ -261,6 +273,43 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
     free(temp_image);
 }
 
+/**
+ * @brief   sobel operation
+ * 
+ */
+*/
+
+void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary) {
+    // sobel kernels
+    int Gx[SOBEL_KERNEL_SIZE][SOBEL_KERNEL_SIZE] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+    int Gy[SOBEL_KERNEL_SIZE][SOBEL_KERNEL_SIZE] = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
+
+    // the radius is only 1 but it doesn't matter if we follows 2.
+    gradient_image *temp_gradients = (gradient_image *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    
+    for (int i = 1; i < axis_secondary - 1; i++) {
+        for (int j = 1; j < axis_main - 1; j++) {
+            // convolution
+            int idx = IMAGE_IDX(i, j, axis_main);
+            double Gx_sum = 0, Gy_sum = 0;
+            for (int di = -1; di <= 1; di++) {
+                for (int dj = -1; dj <= 1; dj++) {
+                    int ni = i + di, nj = j + dj; // the index within the mesh
+                    int n_idx = IMAGE_IDX(ni, nj, axis_main);
+                    Gx_sum += ptr_cells[n_idx] * Gx[di + 1][dj + 1];
+                    Gy_sum += ptr_cells[n_idx] * Gy[di + 1][dj + 1];
+                }
+            }
+            // calculate the magnitude, with the sqrt method
+            double G_magnitude = sqrt(Gx_sum * Gx_sum + Gy_sum * Gy_sum);
+            temp_gradients[idx].magnitude = (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
+            // calculate the angle [rad]
+            temp_gradients[idx].angle = atan2(Gy_sum, Gx_sum);
+        }
+    }
+    memcpy(output, temp_gradients, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    free(temp_gradients);
+}
 
 
 /**
