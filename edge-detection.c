@@ -52,7 +52,7 @@ void error(char *msg);
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
-
+void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary);
 
 int main(int argc, char *argv[]) {
     if (argc <= 2) {
