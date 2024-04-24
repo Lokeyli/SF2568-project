@@ -107,7 +107,9 @@ int main(int argc, char *argv[]) {
     */
     communication(local_image, P, p, axis_main, axis_secondary);
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
-    // sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
+    
+    communication(local_image, P, p, axis_main, axis_secondary);
+    sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
 
 
     // Write output file
@@ -284,29 +286,33 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
     int Gy[SOBEL_KERNEL_SIZE][SOBEL_KERNEL_SIZE] = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
     // the radius is only 1 but it doesn't matter if we follows 2.
-    gradient_image *temp_gradients = (gradient_image *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
-    
-    for (int i = 1; i < axis_secondary - 1; i++) {
-        for (int j = 1; j < axis_main - 1; j++) {
-            // convolution
-            int idx = IMAGE_IDX(i, j, axis_main);
-            double Gx_sum = 0, Gy_sum = 0;
-            for (int di = -1; di <= 1; di++) {
-                for (int dj = -1; dj <= 1; dj++) {
-                    int ni = i + di, nj = j + dj; // the index within the mesh
-                    int n_idx = IMAGE_IDX(ni, nj, axis_main);
-                    Gx_sum += ptr_cells[n_idx] * Gx[di + 1][dj + 1];
-                    Gy_sum += ptr_cells[n_idx] * Gy[di + 1][dj + 1];
+    gradient_image *temp_gradients = (gradient_image *) malloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++)
+    {   
+        double Gx_sum = 0, Gy_sum = 0;
+        for (int i =0; i < SOBEL_KERNEL_SIZE; i++)
+        {
+            for (int j = 0; j < SOBEL_KERNEL_SIZE; j++)
+            {   
+                int translated_idx = offset + (i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
+                // Handel the edges
+                if(offset % axis_main < SOBEL_KERNEL_SIZE / 2){
+                    translated_idx = offset + abs(i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
                 }
+                else if(offset % axis_main >= axis_main - SOBEL_KERNEL_SIZE / 2){
+                    translated_idx = offset - abs(i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
+                }
+                Gx_sum += ptr_cells[translated_idx] * Gx[i][j];
+                Gy_sum += ptr_cells[translated_idx] * Gy[i][j];
             }
-            // calculate the magnitude, with the sqrt method
-            double G_magnitude = sqrt(Gx_sum * Gx_sum + Gy_sum * Gy_sum);
-            temp_gradients[idx].magnitude = (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
-            // calculate the angle [rad]
-            temp_gradients[idx].angle = atan2(Gy_sum, Gx_sum);
         }
+        // calculate the magnitude, with the sqrt method
+        double G_magnitude = sqrt(Gx_sum * Gx_sum + Gy_sum * Gy_sum);
+        temp_gradients[offset].magnitude = (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
+        // calculate the angle [rad]
+        temp_gradients[offset].angle = atan2(Gy_sum, Gx_sum);
     }
-    memcpy(output, temp_gradients, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    memcpy(output, temp_gradients, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
     free(temp_gradients);
 }
 
