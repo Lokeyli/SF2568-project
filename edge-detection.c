@@ -48,7 +48,7 @@ typedef struct {
 #define IMAGE_IDX(i, j, axis_main) ((i)*(axis_main)+(j)) // The 
 
 
-void error(char *msg);
+void error(const char *msg);
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     */
     communication(local_image, P, p, axis_main, axis_secondary);
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
-    sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
+    // sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
 
 
     // Write output file
@@ -277,7 +277,6 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
  * @brief   sobel operation
  * 
  */
-*/
 
 void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary) {
     // sobel kernels
@@ -317,7 +316,7 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
  * 
  * @param   msg         The error message.
  */
-void error(char *msg) {
+void error(const char *msg) {
     printf("%s\n", msg);
     exit(1);
 }
