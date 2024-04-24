@@ -107,6 +107,8 @@ int main(int argc, char *argv[]) {
     */
     communication(local_image, P, p, axis_main, axis_secondary);
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
+    
+    communication(local_image, P, p, axis_main, axis_secondary);
     sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
 
 
