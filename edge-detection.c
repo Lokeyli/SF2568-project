@@ -53,6 +53,7 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary);
+void debug_struct_array(t_grayscale *output, gradient_image *input, int count);
 
 int main(int argc, char *argv[]) {
     if (argc <= 2) {
@@ -93,7 +94,7 @@ int main(int argc, char *argv[]) {
     t_grayscale *local_image = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
     I = I(axis_secondary, P, p);
     // magnitude and angle struct after sobel operation
-    gradient_image *local_image_gradient = (gradient_image *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    gradient_image *local_image_gradient = (gradient_image *) malloc(ALL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
     offset += I_INVERSE(axis_secondary, P, p, 0) * axis_main * sizeof(t_grayscale) + 4;
     MPI_File_read_at(in_fh, offset, local_image + axis_main * N_GHOST_PER_SIZE, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&in_fh);
@@ -110,7 +111,9 @@ int main(int argc, char *argv[]) {
     
     communication(local_image, P, p, axis_main, axis_secondary);
     sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
-
+    
+    t_grayscale *debug_out = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
+    debug_struct_array(debug_out, local_image_gradient, ALL_CELL_COUNT(P, p, axis_main, axis_secondary));
 
     // Write output file
     MPI_File out_fh;
@@ -125,7 +128,7 @@ int main(int argc, char *argv[]) {
         }
     }
     // MPI_File_seek(out_fh, offset, MPI_SEEK_SET);
-    MPI_File_write_at(out_fh, offset, local_image + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
+    MPI_File_write_at(out_fh, offset, debug_out + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&out_fh);
 
     free(local_image);
@@ -302,8 +305,8 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
                 else if(offset % axis_main >= axis_main - SOBEL_KERNEL_SIZE / 2){
                     translated_idx = offset - abs(i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
                 }
-                Gx_sum += ptr_cells[translated_idx] * Gx[i][j];
-                Gy_sum += ptr_cells[translated_idx] * Gy[i][j];
+                Gx_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx] * Gx[i][j];
+                Gy_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx] * Gy[i][j];
             }
         }
         // calculate the magnitude, with the sqrt method
@@ -312,7 +315,7 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
         // calculate the angle [rad]
         temp_gradients[offset].angle = atan2(Gy_sum, Gx_sum);
     }
-    memcpy(output, temp_gradients, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    memcpy(output + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), temp_gradients, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
     free(temp_gradients);
 }
 
@@ -325,4 +328,11 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
 void error(const char *msg) {
     printf("%s\n", msg);
     exit(1);
+}
+
+void debug_struct_array(t_grayscale *output, gradient_image *input, int count){
+    for (int i = 0; i < count; i++)
+    {
+        output[i] = input[i].magnitude;
+    }
 }
