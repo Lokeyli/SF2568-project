@@ -45,11 +45,10 @@ typedef struct {
 #define LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) (N_GHOST_PER_SIZE * axis_main) // The index of the first local cell
 #define GHOST_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) (0) // The index of the first ghost cell
 #define GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) (LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary)) // The index of the first ghost cell
-#define IMAGE_IDX(i, j, axis_main) ((i)*(axis_main)+(j)) // The 
-
 
 void error(const char *msg);
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
+int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary);
@@ -218,6 +217,30 @@ double gaussian_distribution_2D(double x, double y, double mean, double std){
 }
 
 /**
+ * @brief   Handle the offset at the border (along the secondary axis) of the image,
+ *          when applying convolution kernels.
+ * 
+ * @param   offset      The offset of the local image pixel.
+ * @param   kernel_i    The row index of the kernel.
+ * @param   kernel_j    The column index of the kernel.
+ * @param   kernel_size The size of the kernel. (Assume that kernel_size = 2n - 1 and the kernel is square)
+ * @param   axis_main   The size of the main axis.
+ * @param   axis_secondary The size of the secondary axis.
+ * @return int          The offset of the local image pixel after handling the border.
+ */
+int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary) {
+    int translated_idx = offset + (kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+    // Handle the edges
+    if (offset % axis_main < kernel_size / 2) {
+        translated_idx = offset + abs(kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+    }
+    else if (offset % axis_main >= axis_main - kernel_size / 2) {
+        translated_idx = offset - abs(kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+    }
+    return translated_idx;
+}
+
+/**
  * @brief   Gaussian blur the image, in place.
  *          For the pixels on the edge, alone the secondary axis,
  *          they will be flipped to the other side of the edge when applying the filter.
@@ -261,15 +284,8 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
         {
             for (int j = 0; j < GAUSSIAN_KERNEL_SIZE; j++)
             {   
-                int translated_idx = offset + (i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
-                // Handel the edges
-                if(offset % axis_main < GAUSSIAN_KERNEL_SIZE / 2){
-                    translated_idx = offset + abs(i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
-                }
-                else if(offset % axis_main >= axis_main - GAUSSIAN_KERNEL_SIZE / 2){
-                    translated_idx = offset - abs(i - GAUSSIAN_KERNEL_SIZE / 2) + (j - GAUSSIAN_KERNEL_SIZE / 2) * axis_main;
-                }
-                sum += kernel[i][j] * ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx];
+                int offset_handled = handel_offset_at_border(offset, i, j, GAUSSIAN_KERNEL_SIZE, axis_main, axis_secondary);
+                sum += kernel[i][j] * ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled];
             }
         }
         temp_image[offset] = (t_grayscale) (sum / norm);
@@ -279,8 +295,14 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
 }
 
 /**
- * @brief   sobel operation
+ * @brief   Apply the sobel operator on the image.  
  * 
+ * @param   ptr_cells   The pointer to the start of the local cells.
+ * @param   output      The array of struct contains the magnitude and angle of the gradient.
+ * @param   P           Number of total ranks.
+ * @param   p           Rank number.
+ * @param   axis_main   The size of the main axis.
+ * @param   axis_secondary The size of the secondary axis.
  */
 
 void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary) {
@@ -297,16 +319,9 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
         {
             for (int j = 0; j < SOBEL_KERNEL_SIZE; j++)
             {   
-                int translated_idx = offset + (i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
-                // Handel the edges
-                if(offset % axis_main < SOBEL_KERNEL_SIZE / 2){
-                    translated_idx = offset + abs(i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
-                }
-                else if(offset % axis_main >= axis_main - SOBEL_KERNEL_SIZE / 2){
-                    translated_idx = offset - abs(i - SOBEL_KERNEL_SIZE / 2) + (j - SOBEL_KERNEL_SIZE / 2) * axis_main;
-                }
-                Gx_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx] * Gx[i][j];
-                Gy_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + translated_idx] * Gy[i][j];
+                int offset_handled = handel_offset_at_border(offset, i, j, SOBEL_KERNEL_SIZE, axis_main, axis_secondary);
+                Gx_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] * Gx[i][j];
+                Gy_sum += ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] * Gy[i][j];
             }
         }
         // calculate the magnitude, with the sqrt method
@@ -319,6 +334,9 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
     free(temp_gradients);
 }
 
+void non_maximum_suppression(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary){
+    
+}
 
 /**
  * @brief   Exit the program with an error message.
