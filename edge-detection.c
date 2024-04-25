@@ -26,11 +26,6 @@
 
 // Sobel operator parameters
 #define SOBEL_KERNEL_SIZE 3
-typedef struct {
-    t_grayscale magnitude;
-    float angle;
-} gradient_image; // the output of sobel
-
 // Macros
 #define I(N, P, p)  ((N+P-p-1)/P)
 #define I_INVERSE(N, P, p, i) (p*(N/P) + MIN(N%P, p) + i)
@@ -51,8 +46,8 @@ void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
 int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
-void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary);
-void debug_struct_array(t_grayscale *output, gradient_image *input, int count);
+void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p, int axis_main, int axis_secondary);
+void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, int p, int axis_main, int axis_secondary);
 
 int main(int argc, char *argv[]) {
     if (argc <= 2) {
@@ -91,9 +86,9 @@ int main(int argc, char *argv[]) {
     //** Read the image data
     //**** Represent the 2D array in 1D array
     t_grayscale *local_image = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
+    float *local_sobel_gradient = NULL;
     I = I(axis_secondary, P, p);
     // magnitude and angle struct after sobel operation
-    gradient_image *local_image_gradient = (gradient_image *) malloc(ALL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
     offset += I_INVERSE(axis_secondary, P, p, 0) * axis_main * sizeof(t_grayscale) + 4;
     MPI_File_read_at(in_fh, offset, local_image + axis_main * N_GHOST_PER_SIZE, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&in_fh);
@@ -109,10 +104,7 @@ int main(int argc, char *argv[]) {
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
     
     communication(local_image, P, p, axis_main, axis_secondary);
-    sobel_operation(local_image, local_image_gradient, P, p, axis_main, axis_secondary);
-    
-    t_grayscale *debug_out = (t_grayscale *) malloc(ALL_CELL_SIZE(P, p, axis_main, axis_secondary));
-    debug_struct_array(debug_out, local_image_gradient, ALL_CELL_COUNT(P, p, axis_main, axis_secondary));
+    sobel_operation(local_image, local_sobel_gradient, P, p, axis_main, axis_secondary);
 
     // Write output file
     MPI_File out_fh;
@@ -127,7 +119,7 @@ int main(int argc, char *argv[]) {
         }
     }
     // MPI_File_seek(out_fh, offset, MPI_SEEK_SET);
-    MPI_File_write_at(out_fh, offset, debug_out + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
+    MPI_File_write_at(out_fh, offset, local_image + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&out_fh);
 
     free(local_image);
@@ -298,20 +290,25 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
  * @brief   Apply the sobel operator on the image.  
  * 
  * @param   ptr_cells   The pointer to the start of the local cells.
- * @param   output      The array of struct contains the magnitude and angle of the gradient.
+ * @param   ptr_angle_out      The pointer to the start of the output degree, expected to be NULL.
  * @param   P           Number of total ranks.
  * @param   p           Rank number.
  * @param   axis_main   The size of the main axis.
  * @param   axis_secondary The size of the secondary axis.
  */
+void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p, int axis_main, int axis_secondary) {
+    // Check if ptr_angle_out is NULL
+    if (ptr_angle_out != NULL) {
+        error("ptr_angle_out is not NULL, but expected to be NULL.");
+    }
 
-void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary) {
     // sobel kernels
     int Gx[SOBEL_KERNEL_SIZE][SOBEL_KERNEL_SIZE] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
     int Gy[SOBEL_KERNEL_SIZE][SOBEL_KERNEL_SIZE] = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
     // the radius is only 1 but it doesn't matter if we follows 2.
-    gradient_image *temp_gradients = (gradient_image *) malloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
+    t_grayscale *tmp_ptr_cell = (t_grayscale *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
+    ptr_angle_out = (float *) malloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(float));
     for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++)
     {   
         double Gx_sum = 0, Gy_sum = 0;
@@ -326,16 +323,15 @@ void sobel_operation(t_grayscale *ptr_cells, gradient_image *output, int P, int 
         }
         // calculate the magnitude, with the sqrt method
         double G_magnitude = sqrt(Gx_sum * Gx_sum + Gy_sum * Gy_sum);
-        temp_gradients[offset].magnitude = (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
+        tmp_ptr_cell[offset]= (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
         // calculate the angle [rad]
-        temp_gradients[offset].angle = atan2(Gy_sum, Gx_sum);
+        ptr_angle_out[offset] = atan2(Gy_sum, Gx_sum);
     }
-    memcpy(output + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), temp_gradients, LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(gradient_image));
-    free(temp_gradients);
+    memcpy(ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), tmp_ptr_cell, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
 }
 
-void non_maximum_suppression(t_grayscale *ptr_cells, gradient_image *output, int P, int p, int axis_main, int axis_secondary){
-    
+void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, int p, int axis_main, int axis_secondary){
+
 }
 
 /**
@@ -346,11 +342,4 @@ void non_maximum_suppression(t_grayscale *ptr_cells, gradient_image *output, int
 void error(const char *msg) {
     printf("%s\n", msg);
     exit(1);
-}
-
-void debug_struct_array(t_grayscale *output, gradient_image *input, int count){
-    for (int i = 0; i < count; i++)
-    {
-        output[i] = input[i].magnitude;
-    }
 }
