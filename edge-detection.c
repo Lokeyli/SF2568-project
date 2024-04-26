@@ -41,12 +41,18 @@
 #define GHOST_CELL_HEAD_OFFSET(P, p, axis_main, axis_secondary) (0) // The index of the first ghost cell
 #define GHOST_CELL_TAIL_OFFSET(P, p, axis_main, axis_secondary) (LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary)) // The index of the first ghost cell
 
+#define ANGLE_0 0
+#define ANGLE_45 M_PI / 4
+#define ANGLE_90 M_PI / 2
+#define ANGLE_135 3 * M_PI / 4
+#define ANGLE_180 M_PI 
+
 void error(const char *msg);
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
-void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p, int axis_main, int axis_secondary);
+void sobel_operation(t_grayscale *ptr_cells, float **addr_ptr_angle_out, int P, int p, int axis_main, int axis_secondary);
 void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, int p, int axis_main, int axis_secondary);
 
 int main(int argc, char *argv[]) {
@@ -104,7 +110,10 @@ int main(int argc, char *argv[]) {
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
     
     communication(local_image, P, p, axis_main, axis_secondary);
-    sobel_operation(local_image, local_sobel_gradient, P, p, axis_main, axis_secondary);
+    sobel_operation(local_image, &local_sobel_gradient, P, p, axis_main, axis_secondary);
+
+    communication(local_image, P, p, axis_main, axis_secondary);
+    non_maximum_suppression(local_image, local_sobel_gradient, P, p, axis_main, axis_secondary);
 
     // Write output file
     MPI_File out_fh;
@@ -132,7 +141,7 @@ int main(int argc, char *argv[]) {
  *          The first rank will flip its local cells at head to its ghost cells at head.
  *          The last rank will flip its local cells at tail to its ghost cells at tail.
  *          
- * @param   ptr_cells   The pointer to the start of the local cells.
+ * @param   ptr_cells   The pointer to the start of the array of cells (ghost + local).
  * @param   P           Number of total ranks.
  * @param   p           Rank number.
  * @param   axis_main   The size of the main axis.
@@ -248,7 +257,7 @@ int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_s
  *          dot(kernel, |22 21 22|)
  *                      |32 31 32|
  * 
- * @param   ptr_cells   The pointer to the start of the local cells.
+ * @param   ptr_cells   The pointer to the start of the array of cells (ghost + local).
  * @param   P           Number of total ranks.
  * @param   p           Rank number.
  * @param   axis_main   The size of the main axis.
@@ -287,18 +296,22 @@ void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis
 }
 
 /**
- * @brief   Apply the sobel operator on the image.  
+ * @brief   Apply the sobel operator on the image.
+ *          The angle is returned in radian, as elements of the array pointed by addr_ptr_angle_out.
+ *          The size of addr_ptr_angle_out is LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) at return.
+ *          Since this array is not needed for communication, no space for ghost cells is allocated.
  * 
- * @param   ptr_cells   The pointer to the start of the local cells.
- * @param   ptr_angle_out      The pointer to the start of the output degree, expected to be NULL.
+ * @param   ptr_cells   The pointer to the start of the array of cells (ghost + local).
+ * @param   addr_ptr_angle_out  The pointer(address) to the pointer to the start of the output degree, 
+ *                              The *addr_ptr_angle_out (the pointer ptr_angle_out) is expected to be NULL.
  * @param   P           Number of total ranks.
  * @param   p           Rank number.
  * @param   axis_main   The size of the main axis.
  * @param   axis_secondary The size of the secondary axis.
  */
-void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p, int axis_main, int axis_secondary) {
+void sobel_operation(t_grayscale *ptr_cells, float **addr_ptr_angle_out, int P, int p, int axis_main, int axis_secondary) {
     // Check if ptr_angle_out is NULL
-    if (ptr_angle_out != NULL) {
+    if (*addr_ptr_angle_out != NULL) {
         error("ptr_angle_out is not NULL, but expected to be NULL.");
     }
 
@@ -308,7 +321,7 @@ void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p,
 
     // the radius is only 1 but it doesn't matter if we follows 2.
     t_grayscale *tmp_ptr_cell = (t_grayscale *) malloc(LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
-    ptr_angle_out = (float *) malloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(float));
+    *addr_ptr_angle_out = (float *) malloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) * sizeof(float));
     for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++)
     {   
         double Gx_sum = 0, Gy_sum = 0;
@@ -325,13 +338,73 @@ void sobel_operation(t_grayscale *ptr_cells, float *ptr_angle_out, int P, int p,
         double G_magnitude = sqrt(Gx_sum * Gx_sum + Gy_sum * Gy_sum);
         tmp_ptr_cell[offset]= (t_grayscale)MIN(MAX(G_magnitude, GRAYSCALE_MIN), GRAYSCALE_MAX);
         // calculate the angle [rad]
-        ptr_angle_out[offset] = atan2(Gy_sum, Gx_sum);
+        (*addr_ptr_angle_out)[offset] = atan2(Gy_sum, Gx_sum);
     }
     memcpy(ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), tmp_ptr_cell, LOCAL_CELL_SIZE(P, p, axis_main, axis_secondary));
 }
-
+/**
+ * @brief   Apply non-maximum suppression in place.
+ * 
+ * @param   ptr_cells   The pointer to the start of the array of cells (ghost + local).
+ * @param   ptr_angle   The pointer to the start of the array of angles (local cells only).
+ * @param   P           Number of total ranks.
+ * @param   p           Rank number.
+ * @param   axis_main   The size of the main axis.
+ * @param   axis_secondary The size of the secondary axis.
+ */
 void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, int p, int axis_main, int axis_secondary){
-
+    t_grayscale *ptr_cells_with_offset = ptr_cells + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary);
+    for (int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
+        float abs_angle = (ptr_angle[offset] > 0) ? ptr_angle[offset] : (M_PI + ptr_angle[offset]);
+        if (abs_angle >= ANGLE_0 && abs_angle < ANGLE_45){
+            float bias_from_adjacent = tan(abs_angle);
+            int offset_interpolation_right = handel_offset_at_border(offset, 1, 2, 3, axis_main, axis_secondary);
+            int offset_interpolation_right_top = handel_offset_at_border(offset, 0, 2, 3, axis_main, axis_secondary);
+            int offset_interpolation_left = handel_offset_at_border(offset, 1, 0, 3, axis_main, axis_secondary);
+            int offset_interpolation_left_bottom = handel_offset_at_border(offset,2, 0, 3, axis_main, axis_secondary);
+            float value_right = ptr_cells_with_offset[offset_interpolation_right] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_right_top] * bias_from_adjacent;
+            float value_left = ptr_cells_with_offset[offset_interpolation_left] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_left_bottom] * bias_from_adjacent;
+            if (ptr_cells_with_offset[offset] < value_right || ptr_cells_with_offset[offset] < value_left){
+                ptr_cells_with_offset[offset] = 0;
+            }
+        }
+        else if(abs_angle >= ANGLE_45 && abs_angle < ANGLE_90){
+            float bias_from_adjacent = tan(M_PI - abs_angle);
+            int offset_interpolation_top = handel_offset_at_border(offset, 0, 1, 3, axis_main, axis_secondary);
+            int offset_interpolation_top_right = handel_offset_at_border(offset, 0, 2, 3, axis_main, axis_secondary);
+            int offset_interpolation_bottom = handel_offset_at_border(offset, 2, 1, 3, axis_main, axis_secondary);
+            int offset_interpolation_bottom_left = handel_offset_at_border(offset, 2, 0, 3, axis_main, axis_secondary);
+            float value_top = ptr_cells_with_offset[offset_interpolation_top] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_top_right] * bias_from_adjacent;
+            float value_bottom = ptr_cells_with_offset[offset_interpolation_bottom] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_bottom_left] * bias_from_adjacent;
+            if (ptr_cells_with_offset[offset] < value_top || ptr_cells_with_offset[offset] < value_bottom){
+                ptr_cells_with_offset[offset] = 0;
+            }
+        }
+        else if(abs_angle >= ANGLE_90 && abs_angle < ANGLE_135){
+            float bias_from_adjacent = tan(abs_angle - M_PI);
+            int offset_interpolation_top = handel_offset_at_border(offset, 0, 1, 3, axis_main, axis_secondary);
+            int offset_interpolation_top_left = handel_offset_at_border(offset, 0, 0, 3, axis_main, axis_secondary);
+            int offset_interpolation_bottom = handel_offset_at_border(offset, 2, 1, 3, axis_main, axis_secondary);
+            int offset_interpolation_bottom_right = handel_offset_at_border(offset, 2, 2, 3, axis_main, axis_secondary);
+            float value_top = ptr_cells_with_offset[offset_interpolation_top] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_top_left] * bias_from_adjacent;
+            float value_bottom = ptr_cells_with_offset[offset_interpolation_bottom] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_bottom_right] * bias_from_adjacent;
+            if (ptr_cells_with_offset[offset] < value_top || ptr_cells_with_offset[offset] < value_bottom){
+                ptr_cells_with_offset[offset] = 0;
+            }
+        }
+        else{
+            float bias_from_adjacent = tan(2 * M_PI - abs_angle);
+            int offset_interpolation_right = handel_offset_at_border(offset, 1, 2, 3, axis_main, axis_secondary);
+            int offset_interpolation_right_bottom = handel_offset_at_border(offset, 2, 2, 3, axis_main, axis_secondary);
+            int offset_interpolation_left = handel_offset_at_border(offset, 1, 0, 3, axis_main, axis_secondary);
+            int offset_interpolation_left_top = handel_offset_at_border(offset,0, 0, 3, axis_main, axis_secondary);
+            float value_right = ptr_cells_with_offset[offset_interpolation_right] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_right_bottom] * bias_from_adjacent;
+            float value_left = ptr_cells_with_offset[offset_interpolation_left] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_left] * bias_from_adjacent;
+            if (ptr_cells_with_offset[offset] < value_right || ptr_cells_with_offset[offset] < value_left){
+                ptr_cells_with_offset[offset] = 0;
+            }
+        }
+    }
 }
 
 /**
