@@ -221,13 +221,13 @@ double gaussian_distribution_2D(double x, double y, double mean, double std){
  * @return int          The offset of the local image pixel after handling the border.
  */
 int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary) {
-    int translated_idx = offset + (kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+    int translated_idx = offset + (kernel_i - kernel_size / 2) * axis_main + (kernel_j - kernel_size / 2);
     // Handle the edges
     if (offset % axis_main < kernel_size / 2) {
-        translated_idx = offset + abs(kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+        translated_idx = offset + (kernel_i - kernel_size / 2) * axis_main + abs(kernel_j - kernel_size / 2);
     }
     else if (offset % axis_main >= axis_main - kernel_size / 2) {
-        translated_idx = offset - abs(kernel_i - kernel_size / 2) + (kernel_j - kernel_size / 2) * axis_main;
+        translated_idx = offset + (kernel_i - kernel_size / 2) * axis_main - abs(kernel_j - kernel_size / 2);
     }
     return translated_idx;
 }
