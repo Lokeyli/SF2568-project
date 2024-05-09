@@ -18,6 +18,8 @@
 #define HORIZONTAL 0
 #define VERTICAL 1
 #define M_PI 3.14159265358979323846 // Pi, the support of it is varies among compilers, so let's define it here.
+#define EDGE_VALUE 255
+#define NON_EDGE_VALUE 0
 
 // Gaussian filter parameters
 #define GAUSSIAN_STD 1.5
@@ -400,7 +402,7 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             float value_right = ptr_cells_with_offset[offset_interpolation_right] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_right_top] * bias_from_adjacent;
             float value_left = ptr_cells_with_offset[offset_interpolation_left] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_left_bottom] * bias_from_adjacent;
             if (ptr_cells_with_offset[offset] < value_right || ptr_cells_with_offset[offset] < value_left){
-                ptr_cells_with_offset[offset] = 0;
+                ptr_cells_with_offset[offset] = NON_EDGE_VALUE;
             }
         }
         else if(abs_angle >= ANGLE_45 && abs_angle < ANGLE_90){
@@ -412,7 +414,7 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             float value_top = ptr_cells_with_offset[offset_interpolation_top] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_top_right] * bias_from_adjacent;
             float value_bottom = ptr_cells_with_offset[offset_interpolation_bottom] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_bottom_left] * bias_from_adjacent;
             if (ptr_cells_with_offset[offset] < value_top || ptr_cells_with_offset[offset] < value_bottom){
-                ptr_cells_with_offset[offset] = 0;
+                ptr_cells_with_offset[offset] = NON_EDGE_VALUE;
             }
         }
         else if(abs_angle >= ANGLE_90 && abs_angle < ANGLE_135){
@@ -424,7 +426,7 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             float value_top = ptr_cells_with_offset[offset_interpolation_top] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_top_left] * bias_from_adjacent;
             float value_bottom = ptr_cells_with_offset[offset_interpolation_bottom] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_bottom_right] * bias_from_adjacent;
             if (ptr_cells_with_offset[offset] < value_top || ptr_cells_with_offset[offset] < value_bottom){
-                ptr_cells_with_offset[offset] = 0;
+                ptr_cells_with_offset[offset] = NON_EDGE_VALUE;
             }
         }
         else{
@@ -436,7 +438,7 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             float value_right = ptr_cells_with_offset[offset_interpolation_right] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_right_bottom] * bias_from_adjacent;
             float value_left = ptr_cells_with_offset[offset_interpolation_left] * (1 - bias_from_adjacent) + ptr_cells_with_offset[offset_interpolation_left] * bias_from_adjacent;
             if (ptr_cells_with_offset[offset] < value_right || ptr_cells_with_offset[offset] < value_left){
-                ptr_cells_with_offset[offset] = 0;
+                ptr_cells_with_offset[offset] = NON_EDGE_VALUE;
             }
         }
     }
@@ -501,11 +503,11 @@ void hysteresis_threshold(t_grayscale *ptr_cells, int P, int p, int axis_main, i
     int strong_edge_stack_top = 0;
     for(int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
         if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] > threshold_high){
-            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 255;
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = EDGE_VALUE;
             strong_edge_stack[strong_edge_stack_top++] = offset;
         }
         else if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] < threshold_low){
-            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 0;
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = NON_EDGE_VALUE;
         }
     }
 
@@ -520,8 +522,8 @@ void hysteresis_threshold(t_grayscale *ptr_cells, int P, int p, int axis_main, i
                 // If the pixel is not the strong edge pixel itself,
                 // AND the pixel is not already identified as a strong edge pixel,
                 // AND the pixel is not already identified as a weak edge pixel.
-                if(!(offset == offset_handled) && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != 255 && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != 0){
-                    ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] = 255;
+                if(!(offset == offset_handled) && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != EDGE_VALUE && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != NON_EDGE_VALUE){
+                    ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] = EDGE_VALUE;
                     strong_edge_stack[strong_edge_stack_top++] = offset_handled;
                 }
             }
@@ -530,8 +532,8 @@ void hysteresis_threshold(t_grayscale *ptr_cells, int P, int p, int axis_main, i
 
     // Set the rest of pixel with grayscale less than 255 to 0.
     for(int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
-        if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] < 255){
-            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 50;
+        if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] < EDGE_VALUE){
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = NON_EDGE_VALUE;
         }
     }
 
