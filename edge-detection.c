@@ -28,8 +28,13 @@
 #define SOBEL_KERNEL_SIZE 3
 
 // Hysteresis threshold parameters
-#define MAX_THRESHOLD 220
-#define MIN_THRESHOLD 50
+#define AUTO_THRESHOLD 1
+#define MAX_THRESHOLD 180
+#define MIN_THRESHOLD 25
+#define UPPER_THRESHOLD_FACTOR 1.66
+#define MAX_UPPER_THRESHOLD 230
+#define LOWER_THRESHOLD_FACTOR 0.33
+#define MIN_LOWER_THRESHOLD 25
 
 // Macros
 #define I(N, P, p)  ((N+P-p-1)/P)
@@ -53,6 +58,8 @@
 #define ANGLE_180 M_PI 
 
 void error(const char *msg);
+int find_image_median(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
+int _compar_fn(const void *a, const void *b);
 void communication(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 int handel_offset_at_border(int offset, int kernel_i, int kernel_j, int kernel_size, int axis_main, int axis_secondary);
 double gaussian_distribution_2D(double x, double y, double mean, double std);
@@ -113,6 +120,10 @@ int main(int argc, char *argv[]) {
     Canny Edge Detection Algorithm (Main Steps)
     
     */
+#ifdef AUTO_THRESHOLD
+    int median = find_image_median(local_image, P, p, axis_main, axis_secondary);
+#endif
+
     communication(local_image, P, p, axis_main, axis_secondary);
     gaussian_blur(local_image, P, p, axis_main, axis_secondary);
     
@@ -122,8 +133,14 @@ int main(int argc, char *argv[]) {
     communication(local_image, P, p, axis_main, axis_secondary);
     non_maximum_suppression(local_image, local_sobel_gradient, P, p, axis_main, axis_secondary);
 
+#ifdef AUTO_THRESHOLD
+    communication(local_image, P, p, axis_main, axis_secondary);
+    hysteresis_threshold(local_image, P, p, axis_main, axis_secondary, MAX(median * LOWER_THRESHOLD_FACTOR, MIN_LOWER_THRESHOLD), 
+        MIN(median * UPPER_THRESHOLD_FACTOR, MAX_UPPER_THRESHOLD));
+#else
     communication(local_image, P, p, axis_main, axis_secondary);
     hysteresis_threshold(local_image, P, p, axis_main, axis_secondary, MIN_THRESHOLD, MAX_THRESHOLD);
+#endif
 
     // Write output file
     MPI_File out_fh;
@@ -423,6 +440,47 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             }
         }
     }
+}
+
+/**
+ * @brief   Find the median grayscale value of the image.
+ *          Use the return value to set the threshold for hysteresis threshold.
+ * 
+ * @param   ptr_cells   My Param doc
+ * @param   P           My Param doc
+ * @param   p           My Param doc
+ * @param   axis_main   My Param doc
+ * @param   axis_secondaryMy Param doc
+ * @return int 
+ */
+int find_image_median(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary){
+    int *histogram = (int *) calloc(GRAYSCALE_MAX, sizeof(int));
+    int *medians = (int *) calloc(P, sizeof(int));
+    for(int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
+        histogram[ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset]]++;
+    }
+
+    // Find the local median
+    int sum = 0;                                                                
+    int local_median = 0;
+    for(int i = 0; i < GRAYSCALE_MAX; i++){
+        sum += histogram[i];
+        if(sum > LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary) / 2){
+            free(histogram);
+            local_median = i;
+            break;
+        }
+    }
+
+    // Send the local median to others, and receive the medians from others.
+    // Approximate the global median by the median of the medians.
+    MPI_Allgather(&local_median, 1, MPI_INT, medians, 1, MPI_INT, MPI_COMM_WORLD);
+    qsort(medians, P, sizeof(int), _compar_fn);
+    return P % 2 == 0 ? (medians[P / 2] + medians[P / 2 - 1]) / 2 : medians[P / 2];
+}
+
+int _compar_fn(const void *a, const void *b){
+    return (*(int *)a - *(int *)b);
 }
 
 /**
