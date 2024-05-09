@@ -2,7 +2,7 @@ import sys
 import logging
 import argparse
 from PIL import Image
-from numpy import array, int32, uint8, fromfile
+from numpy import array, int32, uint8, fromfile, unique
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,7 +27,9 @@ def bin_to_img(bin_filename, img_filename):
         logging.debug(f"Image size: {size[0]} x {size[1]}")
         pixels = fromfile(file, dtype=uint8).reshape(size[::-1])
     img = Image.fromarray(pixels, "L")
-    img.save(img_filename)
+    ## Force to using lossless compression format , i.e. PNG
+    img_filename = img_filename.split(".")[0] + ".png"
+    img.save(img_filename, format="PNG")
     logging.info(f"Binary {bin_filename} converted to {img_filename}")
     logging.info(f"Image size: {size[0]} x {size[1]}")
 

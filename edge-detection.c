@@ -26,6 +26,11 @@
 
 // Sobel operator parameters
 #define SOBEL_KERNEL_SIZE 3
+
+// Hysteresis threshold parameters
+#define MAX_THRESHOLD 220
+#define MIN_THRESHOLD 50
+
 // Macros
 #define I(N, P, p)  ((N+P-p-1)/P)
 #define I_INVERSE(N, P, p, i) (p*(N/P) + MIN(N%P, p) + i)
@@ -54,6 +59,7 @@ double gaussian_distribution_2D(double x, double y, double mean, double std);
 void gaussian_blur(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary);
 void sobel_operation(t_grayscale *ptr_cells, float **addr_ptr_angle_out, int P, int p, int axis_main, int axis_secondary);
 void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, int p, int axis_main, int axis_secondary);
+void hysteresis_threshold(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary, int threshold_low, int threshold_high);
 
 int main(int argc, char *argv[]) {
     if (argc <= 2) {
@@ -68,7 +74,8 @@ int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
-    
+    double start, end;
+    start = MPI_Wtime();
     // Read input file
     //** Read the width and height of the image
     MPI_File in_fh;
@@ -115,6 +122,9 @@ int main(int argc, char *argv[]) {
     communication(local_image, P, p, axis_main, axis_secondary);
     non_maximum_suppression(local_image, local_sobel_gradient, P, p, axis_main, axis_secondary);
 
+    communication(local_image, P, p, axis_main, axis_secondary);
+    hysteresis_threshold(local_image, P, p, axis_main, axis_secondary, MIN_THRESHOLD, MAX_THRESHOLD);
+
     // Write output file
     MPI_File out_fh;
     MPI_File_open(MPI_COMM_WORLD, output_file, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &out_fh);
@@ -132,6 +142,14 @@ int main(int argc, char *argv[]) {
     MPI_File_close(&out_fh);
 
     free(local_image);
+
+    // Print the time elapsed to stdout.
+    end = MPI_Wtime();
+    if (p == 0){
+        // later process by python script.
+        printf("%d %f\n", P, end - start);
+    }
+
     MPI_Finalize();
     return 0;
 }
@@ -405,6 +423,60 @@ void non_maximum_suppression(t_grayscale *ptr_cells, float *ptr_angle, int P, in
             }
         }
     }
+}
+
+/**
+ * @brief   Apply the hysteresis threshold on the image to remove the weak edges.
+ * 
+ * @param   ptr_cells   The pointer to the start of the array of cells (ghost + local).
+ * @param   ptr_angle   The pointer to the start of the array of angles (local cells only).
+ * @param   P           Number of total ranks.
+ * @param   p           Rank number.
+ * @param   axis_main   The size of the main axis.
+ * @param   axis_secondary The size of the secondary axis.
+ * @param   threshold_low The lower threshold, pixel with grayscale less than this value will be set to 0.
+ * @param   threshold_high The higher threshold, pixel with grayscale greater than this value will be set to 255.
+ */
+void hysteresis_threshold(t_grayscale *ptr_cells, int P, int p, int axis_main, int axis_secondary, int threshold_low, int threshold_high){
+    const int _KERNEL_SIZE = 3;
+    t_grayscale *strong_edge_stack = (t_grayscale *) calloc(LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), sizeof(t_grayscale));
+    int strong_edge_stack_top = 0;
+    for(int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
+        if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] > threshold_high){
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 255;
+            strong_edge_stack[strong_edge_stack_top++] = offset;
+        }
+        else if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] < threshold_low){
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 0;
+        }
+    }
+
+    // identify the adjacent pixels of the strong edge pixels in BFS fashion.
+    while(strong_edge_stack_top > 0){
+        int offset = strong_edge_stack[--strong_edge_stack_top];
+        for (int i =0; i < _KERNEL_SIZE; i++)
+        {
+            for (int j = 0; j < _KERNEL_SIZE; j++)
+            {   
+                int offset_handled = handel_offset_at_border(offset, i, j, _KERNEL_SIZE, axis_main, axis_secondary);
+                // If the pixel is not the strong edge pixel itself,
+                // AND the pixel is not already identified as a strong edge pixel,
+                // AND the pixel is not already identified as a weak edge pixel.
+                if(!(offset == offset_handled) && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != 255 && ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] != 0){
+                    ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset_handled] = 255;
+                    strong_edge_stack[strong_edge_stack_top++] = offset_handled;
+                }
+            }
+        }
+    }
+
+    // Set the rest of pixel with grayscale less than 255 to 0.
+    for(int offset = 0; offset < LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary); offset++){
+        if(ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] < 255){
+            ptr_cells[LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary) + offset] = 50;
+        }
+    }
+
 }
 
 /**
