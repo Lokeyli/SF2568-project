@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <float.h>
 #include <stdbool.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 // Global parameters/variables
 #define t_grayscale unsigned char
@@ -30,7 +32,7 @@
 #define SOBEL_KERNEL_SIZE 3
 
 // Hysteresis threshold parameters
-#define AUTO_THRESHOLD 1
+#define AUTO_THRESHOLD 0
 #define MAX_THRESHOLD 180
 #define MIN_THRESHOLD 25
 #define UPPER_THRESHOLD_FACTOR 1.66
@@ -84,7 +86,9 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
     double start, end;
-    start = MPI_Wtime();
+    if(p == 0){
+        start = MPI_Wtime();
+    }
     // Read input file
     //** Read the width and height of the image
     MPI_File in_fh;
@@ -162,11 +166,19 @@ int main(int argc, char *argv[]) {
 
     free(local_image);
 
-    // Print the time elapsed to stdout.
-    end = MPI_Wtime();
+    // Print the timing information to stdout.
+    // Output format:
+    // <number of processes> <wall clock time> <CPU time>
     if (p == 0){
-        // later process by python script.
-        printf("%d %f\n", P, end - start);
+        end = MPI_Wtime();
+        // Print the wall clock time
+        printf("%d %f ", P, end - start);
+        // Print the CPU time (System + User)
+        struct rusage usage;
+        getrusage(RUSAGE_SELF, &usage);
+        double user_time = (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1000000.0;
+        double system_time = (double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1000000.0;
+        printf("%f\n", system_time + user_time);
     }
 
     MPI_Finalize();
