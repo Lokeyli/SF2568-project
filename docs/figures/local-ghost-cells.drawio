@@ -1,9 +1,140 @@
-<mxfile host="app.diagrams.net" modified="2024-05-14T20:57:22.980Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0" version="24.4.0" etag="eTG8Nu1m5T8xorBtv63L" type="github">
+<mxfile host="app.diagrams.net" modified="2024-05-15T14:40:49.971Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0" etag="y-xBKDVleesu86ihtl3D" version="24.4.0" type="github">
   <diagram name="Page-1" id="rQZuDUQdZZTS-YjYlVnD">
-    <mxGraphModel>
+    <mxGraphModel dx="1169" dy="682" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-1" value="Local cells (no need to send)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="340" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-2" value="Ghost cells (receive from p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="80" y="320" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-3" value="Ghost cells (receive from p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="440" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-24" value="Local cells (send to p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="340" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-25" value="Local cells (send to p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="80" y="420" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-26" value="Local cells (no need to send)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="440" y="200" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-27" value="Ghost cells (receive from p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="180" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-28" value="Ghost cells (receive from p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="300" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-29" value="Local cells (send to p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="200" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-30" value="Local cells (send to p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="280" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-31" value="Local cells (no need to send)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="440" y="380" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-32" value="Ghost cells (receive from p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="360" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-33" value="Ghost cells (receive from p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="480" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-34" value="Local cells (send to p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="380" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-35" value="Local cells (send to p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="460" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-36" value="Local cells (no need to send)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-37" value="Ghost cells (receive from p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="540" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-38" value="Ghost cells (receive from p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="660" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-39" value="Local cells (send to p-1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-40" value="Local cells (send to p+1 rank)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="640" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-41" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;exitX=0.25;exitY=0;exitDx=0;exitDy=0;fillColor=#f8cecc;strokeColor=#b85450;" edge="1" parent="1" source="qvT2zuwFDOfcTMPzs7nV-30" target="qvT2zuwFDOfcTMPzs7nV-32">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="490" y="290" as="sourcePoint" />
+            <mxPoint x="430" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-42" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fillColor=#f8cecc;strokeColor=#b85450;" edge="1" parent="1" target="qvT2zuwFDOfcTMPzs7nV-38">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="490" y="650" as="sourcePoint" />
+            <mxPoint x="520" y="690" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="490" y="720" />
+              <mxPoint x="540" y="720" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-44" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;fillColor=#f8cecc;strokeColor=#b85450;" edge="1" parent="1" target="qvT2zuwFDOfcTMPzs7nV-28">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="590" y="390" as="sourcePoint" />
+            <mxPoint x="500" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-45" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.25;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" edge="1" parent="1" source="qvT2zuwFDOfcTMPzs7nV-35" target="qvT2zuwFDOfcTMPzs7nV-37">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="320" y="580" as="sourcePoint" />
+            <mxPoint x="370" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-46" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" edge="1" parent="1" target="qvT2zuwFDOfcTMPzs7nV-33">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="590" y="570" as="sourcePoint" />
+            <mxPoint x="730" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-47" value="" style="endArrow=classic;html=1;rounded=0;fillColor=#dae8fc;strokeColor=#6c8ebf;entryX=0.496;entryY=-0.228;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="qvT2zuwFDOfcTMPzs7nV-27">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="590" y="210" as="sourcePoint" />
+            <mxPoint x="540" y="140" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="590" y="140" />
+              <mxPoint x="539" y="140" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-50" value="R(1): 2n send, 2n+1 receive" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="320" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-51" value="R(1): 2n send, 2n+1 receive" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="680" width="170" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-52" value="R(2) : 2n receive, 2n+1 send" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="590" y="330" width="170" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-53" value="B(2): 2n send, 2n+1 receive" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="590" y="150" width="170" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-54" value="B(2): 2n send, 2n+1 receive" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="590" y="510" width="170" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-55" value="B(1): 2n receive, 2n+1 send" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="500" width="169" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-56" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;Rank 0&lt;/font&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="235" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-57" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;Rank 1&lt;/font&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="415" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qvT2zuwFDOfcTMPzs7nV-58" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;Rank 2&lt;/font&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="595" width="80" height="30" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
