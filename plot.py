@@ -30,8 +30,12 @@ for i in range(1, len(sys.argv)):
     with open(sys.argv[i], "r") as f:
         data = f.readlines()
         x = [float(line.split()[0]) for line in data]
-        y = [1 / float(line.split()[2]) for line in data]
-        plt.scatter(x, y, label=sys.argv[i])
+        y = [float(line.split()[2]) for line in data]
+        # Sort y and x base on x, in ascending order
+        x, y = zip(*sorted(zip(x, y)))
+        # Calculate speedup
+        speedup = [y[0] / time for time in y]
+        plt.scatter(x, speedup, label=sys.argv[i])
 
 plt.xlabel("Number of Core")
 plt.ylabel("Speedup")
