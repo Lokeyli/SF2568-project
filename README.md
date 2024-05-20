@@ -52,13 +52,11 @@ By commenting out the line
 You can test the code without the auto threshold.
 
 ## Scripts
-1. `test.sh`, used as followed
+1. `test.sh`, used to speed up the test locally. To run this script, you MUST configure mpicc (from openmpi) and already put the corresponding image file in the directory `/data/in-image/`. This script used as follows
 
     ```bash
     ./test.sh [image file without path and postfix] [image file postfix]
     ```
-
-    This is intended to speed up the test, assuming you have already put the corresponding file in the directory `/data/in-image/`, and has mpicc (from openmpi) configured.
 
     Example call: I have put Southbank-3.jpg in the directory as `/data/in-image/Southbank-3.jpg`. Using this script will give you the output image in `/data/out-image/Southbank-3.png`.
 
