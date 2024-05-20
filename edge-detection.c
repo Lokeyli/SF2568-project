@@ -16,9 +16,6 @@
 #define GRAYSCALE_MIN 0
 #define MPI_T_GRAYSCALE MPI_UNSIGNED_CHAR
 #define N_GHOST_PER_SIZE 2  // (int) max(kernel_size1, kernel_size2, ...) / 2
-#define ORIENTATION 0 // 0: horizontal, 1: vertical
-#define HORIZONTAL 0
-#define VERTICAL 1
 #define M_PI 3.14159265358979323846 // Pi, the support of it is varies among compilers, so let's define it here.
 #define EDGE_VALUE 255
 #define NON_EDGE_VALUE 0
@@ -32,7 +29,7 @@
 #define SOBEL_KERNEL_SIZE 3
 
 // Hysteresis threshold parameters
-#define AUTO_THRESHOLD 0
+#define AUTO_THRESHOLD 1
 #define MAX_THRESHOLD 180
 #define MIN_THRESHOLD 25
 #define UPPER_THRESHOLD_FACTOR 1.66
@@ -97,17 +94,10 @@ int main(int argc, char *argv[]) {
     if (in_fh == NULL) {
         error("Error opening input file.");
     }
-    if (ORIENTATION == HORIZONTAL) {
-        //** Read the width of the image.
-        MPI_File_read_at_all(in_fh, offset, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-        //** Read the height of the image.
-        MPI_File_read_at_all(in_fh, offset += 4, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-    } else {
-        //** Read the height of the image.
-        MPI_File_read_at_all(in_fh, offset, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-        //** Read the width of the image.
-        MPI_File_read_at_all(in_fh, offset += 4, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-    }
+    //** Read the width of the image.
+    MPI_File_read_at_all(in_fh, offset, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
+    //** Read the height of the image.
+    MPI_File_read_at_all(in_fh, offset += 4, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
 
     //** Read the image data
     //**** Represent the 2D array in 1D array
@@ -151,16 +141,8 @@ int main(int argc, char *argv[]) {
     // Write output file
     MPI_File out_fh;
     MPI_File_open(MPI_COMM_WORLD, output_file, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &out_fh);
-    if(p == 0){
-        if (ORIENTATION == HORIZONTAL) {
-            MPI_File_write_at(out_fh, 0, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-            MPI_File_write_at(out_fh, 4, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-        } else {
-            MPI_File_write_at(out_fh, 0, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-            MPI_File_write_at(out_fh, 4, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
-        }
-    }
-    // MPI_File_seek(out_fh, offset, MPI_SEEK_SET);
+    MPI_File_write_at(out_fh, 0, &axis_main, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
+    MPI_File_write_at(out_fh, 4, &axis_secondary, 1, MPI_INT32_T, MPI_STATUS_IGNORE);
     MPI_File_write_at(out_fh, offset, local_image + LOCAL_CELL_OFFSET(P, p, axis_main, axis_secondary), LOCAL_CELL_COUNT(P, p, axis_main, axis_secondary), MPI_T_GRAYSCALE, MPI_STATUS_IGNORE);
     MPI_File_close(&out_fh);
 
