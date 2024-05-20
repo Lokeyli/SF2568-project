@@ -26,21 +26,30 @@ Binary File (original image) -- Edge detection (in C) --> Binary File (new image
 Binary File  -- (Python script) --> Gray Scale Imaging (only contains edge)
 
 ## User guide
-1. First, prepare the image in any format as long as it is accepted by my Python library `Pillow`.
+1. Prepare the Python environment, where Python is 3.10.x, and install the libraries using `pip install -r requirement.txt`. Prepare the C compiler, either mpicc or cc, configured with an MPI library.
+2. First, prepare the image in any format as long as it is accepted by my Python library `Pillow`.
 2. Use the following command to pre-process the image to the binary file.
-    ```
-    python3 utils.py img-to-bin [in image file] [out binary file]
+    ```bash
+    python3 utils.py img-to-bin [input image file] [output binary file]
     ```
 3. Compile the source code `edge-detection.c` and put the option `-lm` at the end. For example, `cc edge-detection.c -O3 -lm`.
 4. Run the executable. The `executable` takes two arguments: the input binary file and the output binary file. The example call on PDC will be,
-    ```
+    ```bash
     srun [executable] [input binary file] [output binary file]
     ```
 5. Use the following command to post-process the binary file to the image.
-    ```
-    python3 utils.py img-to-bin [out binary file]  [in image file] [in image file]
+    ```bash
+    python3 utils.py img-to-bin [out binary file]  [input image file] [input image file]
     ```
     Note that the Python script always outputs a PNG image regardless of the argument's format to ensure lossless compression.
+
+## Auto Threshold
+
+By commenting out the line 
+```C
+#define AUTO_THRESHOLD 1
+```
+You can test the code without the auto threshold.
 
 ## Scripts
 1. `test.sh`, used as followed
@@ -53,6 +62,6 @@ Binary File  -- (Python script) --> Gray Scale Imaging (only contains edge)
 
     Example call: I have put Southbank-3.jpg in the directory as `/data/in-image/Southbank-3.jpg`. Using this script will give you the output image in `/data/out-image/Southbank-3.png`.
 
-    ```
+    ```bash
     ./test.sh Southbank-3 jpg
     ```
